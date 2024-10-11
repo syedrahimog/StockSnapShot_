@@ -1,7 +1,8 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTextEdit, QLineEdit
-from PyQt5.QtChart import QChart, QChartView, QLineSeries, QDateTimeAxis, QValueAxis
+from PyQt5.QtChart import QChart, QChartView, QLineSeries, QDateTimeAxis, QValueAxis, QBarSeries, QBarSet
 from PyQt5.QtCore import Qt, QDateTime
+from PyQt5.QtGui import QColor
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -95,14 +96,23 @@ class StockApp(QMainWindow):
     def update_chart(self):
         stock_data = yf.download(self.current_stock, period=self.current_period, interval="5m")
         
-        series = QLineSeries()
+        # Price series
+        price_series = QLineSeries()
+        # Volume series
+        volume_series = QBarSeries()
+        volume_set = QBarSet("Volume")
+        
         for index, row in stock_data.iterrows():
             date_time = QDateTime()
             date_time.setSecsSinceEpoch(int(index.timestamp()))
-            series.append(date_time.toMSecsSinceEpoch(), row['Close'])
+            price_series.append(date_time.toMSecsSinceEpoch(), row['Close'])
+            volume_set.append(row['Volume'])
+
+        volume_series.append(volume_set)
 
         chart = QChart()
-        chart.addSeries(series)
+        chart.addSeries(price_series)
+        chart.addSeries(volume_series)
         chart.setTitle(f"{self.current_stock} - {self.current_period}")
 
         # Create and set up the X-axis (date/time)
@@ -110,12 +120,28 @@ class StockApp(QMainWindow):
         axis_x.setFormat("MM-dd HH:mm")
         axis_x.setTickCount(5)
         chart.addAxis(axis_x, Qt.AlignBottom)
-        series.attachAxis(axis_x)
+        price_series.attachAxis(axis_x)
+        volume_series.attachAxis(axis_x)
 
-        # Create and set up the Y-axis (stock price)
-        axis_y = QValueAxis()
-        chart.addAxis(axis_y, Qt.AlignLeft)
-        series.attachAxis(axis_y)
+        # Create and set up the Y-axis for price
+        axis_y_price = QValueAxis()
+        axis_y_price.setTitleText("Price")
+        chart.addAxis(axis_y_price, Qt.AlignLeft)
+        price_series.attachAxis(axis_y_price)
+
+        # Create and set up the Y-axis for volume
+        axis_y_volume = QValueAxis()
+        axis_y_volume.setTitleText("Volume")
+        chart.addAxis(axis_y_volume, Qt.AlignRight)
+        volume_series.attachAxis(axis_y_volume)
+
+        # Set the range for volume axis
+        max_volume = stock_data['Volume'].max()
+        axis_y_volume.setRange(0, max_volume * 1.1)  # Add 10% margin
+
+        # Set colors
+        price_series.setColor(QColor(0, 0, 255))  # Blue for price
+        volume_set.setColor(QColor(200, 200, 200, 100))  # Light gray with transparency for volume
 
         self.chart_view.setChart(chart)
 
