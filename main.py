@@ -4,6 +4,7 @@ from PyQt5.QtChart import QChart, QChartView, QLineSeries, QDateTimeAxis, QValue
 from PyQt5.QtCore import Qt, QDateTime
 import yfinance as yf
 import pandas as pd
+import numpy as np
 
 class StockApp(QMainWindow):
     def __init__(self):
@@ -15,7 +16,7 @@ class StockApp(QMainWindow):
         self.setCentralWidget(central_widget)
         main_layout = QHBoxLayout(central_widget)
 
-        # First column: Stock selection and search
+        # First column: Stock selection
         stock_column = QVBoxLayout()
         
         # Add search box and button
@@ -104,12 +105,49 @@ class StockApp(QMainWindow):
         ma10 = stock_data['Close'].rolling(window=10).mean().iloc[-1]
         ma30 = stock_data['Close'].rolling(window=30).mean().iloc[-1]
         
-        if ma10 > ma30:
-            prediction = f"{self.current_stock} is likely to INCREASE based on moving averages. The ma10 is {ma10:.2f} and the ma30 is {ma30:.2f}."
-        else:
-            prediction = f"{self.current_stock} is likely to DECREASE based on moving averages. The ma10 is {ma10:.2f} and the ma30 is {ma30:.2f}."
+        # Calculate Stochastic Oscillator
+        low_14 = stock_data['Low'].rolling(window=14).min()
+        high_14 = stock_data['High'].rolling(window=14).max()
+        k = 100 * ((stock_data['Close'] - low_14) / (high_14 - low_14))
+        d = k.rolling(window=3).mean()
+        current_k = k.iloc[-1]
+        current_d = d.iloc[-1]
+
+        # Calculate RSI
+        delta = stock_data['Close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        current_rsi = rsi.iloc[-1]
+
+        # Prepare analysis text
+        analysis = f"Analysis for {self.current_stock}:\n\n"
         
-        self.analysis_text.setText(prediction)
+        if ma10 > ma30:
+            analysis += f"Moving Averages: Likely to INCREASE. MA10: {ma10:.2f}, MA30: {ma30:.2f}\n\n"
+        else:
+            analysis += f"Moving Averages: Likely to DECREASE. MA10: {ma10:.2f}, MA30: {ma30:.2f}\n\n"
+        
+        analysis += f"Stochastic Oscillator:\n"
+        analysis += f"%K: {current_k:.2f}\n"
+        analysis += f"%D: {current_d:.2f}\n"
+        if current_k > 80 and current_d > 80:
+            analysis += "Interpretation: Overbought condition\n"
+        elif current_k < 20 and current_d < 20:
+            analysis += "Interpretation: Oversold condition\n"
+        else:
+            analysis += "Interpretation: Neutral\n\n"
+
+        analysis += f"Relative Strength Index (RSI): {current_rsi:.2f}\n"
+        if current_rsi > 70:
+            analysis += "Interpretation: Overbought condition\n"
+        elif current_rsi < 30:
+            analysis += "Interpretation: Oversold condition\n"
+        else:
+            analysis += "Interpretation: Neutral\n"
+        
+        self.analysis_text.setText(analysis)
 
     def search_stock(self):
         stock_symbol = self.search_box.text().upper()
