@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTextEdit
-from PyQt5.QtChart import QChart, QChartView, QLineSeries
-from PyQt5.QtCore import Qt
+from PyQt5.QtChart import QChart, QChartView, QLineSeries, QDateTimeAxis, QValueAxis
+from PyQt5.QtCore import Qt, QDateTime
 import yfinance as yf
 import pandas as pd
 
@@ -30,7 +30,7 @@ class StockApp(QMainWindow):
         chart_column.addWidget(self.chart_view)
         
         time_buttons = QHBoxLayout()
-        for period in ["1d", "5d", "10d"]:
+        for period in ["1d", "5d", "1mo"]:  # Changed "10d" to "1m"
             btn = QPushButton(period)
             btn.clicked.connect(lambda checked, p=period: self.update_chart_period(p))
             time_buttons.addWidget(btn)
@@ -63,12 +63,26 @@ class StockApp(QMainWindow):
         
         series = QLineSeries()
         for index, row in stock_data.iterrows():
-            series.append(index.timestamp() * 1000, row['Close'])
+            date_time = QDateTime()
+            date_time.setSecsSinceEpoch(int(index.timestamp()))
+            series.append(date_time.toMSecsSinceEpoch(), row['Close'])
 
         chart = QChart()
         chart.addSeries(series)
         chart.setTitle(f"{self.current_stock} - {self.current_period}")
-        chart.createDefaultAxes()
+
+        # Create and set up the X-axis (date/time)
+        axis_x = QDateTimeAxis()
+        axis_x.setFormat("MM-dd HH:mm")
+        axis_x.setTickCount(5)
+        chart.addAxis(axis_x, Qt.AlignBottom)
+        series.attachAxis(axis_x)
+
+        # Create and set up the Y-axis (stock price)
+        axis_y = QValueAxis()
+        chart.addAxis(axis_y, Qt.AlignLeft)
+        series.attachAxis(axis_y)
+
         self.chart_view.setChart(chart)
 
     def update_analysis(self):
