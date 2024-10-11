@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTextEdit
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTextEdit, QLineEdit
 from PyQt5.QtChart import QChart, QChartView, QLineSeries, QDateTimeAxis, QValueAxis
 from PyQt5.QtCore import Qt, QDateTime
 import yfinance as yf
@@ -15,8 +15,20 @@ class StockApp(QMainWindow):
         self.setCentralWidget(central_widget)
         main_layout = QHBoxLayout(central_widget)
 
-        # First column: Stock selection
+        # First column: Stock selection and search
         stock_column = QVBoxLayout()
+        
+        # Add search box and button
+        search_layout = QHBoxLayout()
+        self.search_box = QLineEdit()
+        self.search_box.setPlaceholderText("Enter stock symbol")
+        search_button = QPushButton("Search")
+        search_button.clicked.connect(self.search_stock)
+        search_layout.addWidget(self.search_box)
+        search_layout.addWidget(search_button)
+        stock_column.addLayout(search_layout)
+
+        # Add predefined stock buttons
         stocks = ["AAPL", "INTC", "NVDA", "TSLA", "GOOG", "AMZN", "META", "TSM", "AVGO", "XOM"]
         for stock in stocks:
             btn = QPushButton(stock)
@@ -93,11 +105,16 @@ class StockApp(QMainWindow):
         ma30 = stock_data['Close'].rolling(window=30).mean().iloc[-1]
         
         if ma10 > ma30:
-            prediction = "The stock is likely to increase based on moving averages."
+            prediction = f"{self.current_stock} is likely to INCREASE based on moving averages. The ma10 is {ma10:.2f} and the ma30 is {ma30:.2f}."
         else:
-            prediction = "The stock is likely to decrease based on moving averages."
+            prediction = f"{self.current_stock} is likely to DECREASE based on moving averages. The ma10 is {ma10:.2f} and the ma30 is {ma30:.2f}."
         
         self.analysis_text.setText(prediction)
+
+    def search_stock(self):
+        stock_symbol = self.search_box.text().upper()
+        if stock_symbol:
+            self.update_stock(stock_symbol)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
