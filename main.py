@@ -25,9 +25,27 @@ class StockApp(QMainWindow):
                 font-size: 14px;
                 margin: 2px 1px;
                 border-radius: 4px;
+                min-width: 80px;
+                max-width: 80px;
+                min-height: 30px;
+                max-height: 30px;
             }
             QPushButton:hover {
                 background-color: #45a049;
+            }
+        """
+
+        # Define the search box style
+        self.search_box_style = """
+            QLineEdit {
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                padding: 5px;
+                font-size: 14px;
+                min-width: 120px;
+                max-width: 120px;
+                min-height: 20px;
+                max-height: 20px;
             }
         """
 
@@ -35,18 +53,20 @@ class StockApp(QMainWindow):
         self.setCentralWidget(central_widget)
         main_layout = QHBoxLayout(central_widget)
 
-        # First column: Stock selection
+        # First column: Stock selection and search
         stock_column = QVBoxLayout()
         
         # Add search box and button
         search_layout = QHBoxLayout()
         self.search_box = QLineEdit()
-        self.search_box.setPlaceholderText("Enter stock symbol")
+        self.search_box.setPlaceholderText("Enter symbol")
+        self.search_box.setStyleSheet(self.search_box_style)
         search_button = QPushButton("Search")
         search_button.setStyleSheet(self.button_style)
         search_button.clicked.connect(self.search_stock)
         search_layout.addWidget(self.search_box)
         search_layout.addWidget(search_button)
+        search_layout.setAlignment(Qt.AlignLeft)  # Align the search box and button to the left
         stock_column.addLayout(search_layout)
 
         # Add predefined stock buttons
