@@ -6,6 +6,7 @@ from PyQt5.QtGui import QColor
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import datetime
 
 class StockApp(QMainWindow):
     def __init__(self):
@@ -51,12 +52,9 @@ class StockApp(QMainWindow):
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        main_layout = QHBoxLayout(central_widget)
+        main_layout = QVBoxLayout(central_widget)
 
-        # First column: Stock selection and search
-        stock_column = QVBoxLayout()
-        
-        # Add search box and button
+        # Add search box and button at the top
         search_layout = QHBoxLayout()
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Enter symbol")
@@ -66,17 +64,27 @@ class StockApp(QMainWindow):
         search_button.clicked.connect(self.search_stock)
         search_layout.addWidget(self.search_box)
         search_layout.addWidget(search_button)
-        search_layout.setAlignment(Qt.AlignLeft)  # Align the search box and button to the left
-        stock_column.addLayout(search_layout)
+        search_layout.addStretch(1)  # Push search box and button to the left
+        main_layout.addLayout(search_layout)
 
+        # Create a layout for the three columns
+        columns_layout = QHBoxLayout()
+        main_layout.addLayout(columns_layout)
+
+        # First column: Stock list
+        stock_list_column = QVBoxLayout()
+        stock_widget = QWidget()
+        stock_widget.setLayout(stock_list_column)
+        stock_widget.setFixedWidth(150)  # Set a fixed width for the first column
+        
         # Add predefined stock buttons
         stocks = ["AAPL", "INTC", "NVDA", "TSLA", "GOOG", "AMZN", "META", "TSM", "AVGO", "XOM"]
         for stock in stocks:
             btn = QPushButton(stock)
             btn.setStyleSheet(self.button_style)
             btn.clicked.connect(lambda checked, s=stock: self.update_stock(s))
-            stock_column.addWidget(btn)
-        main_layout.addLayout(stock_column)
+            stock_list_column.addWidget(btn)
+        columns_layout.addWidget(stock_widget)
 
         # Second column: Chart
         chart_column = QVBoxLayout()
@@ -84,21 +92,21 @@ class StockApp(QMainWindow):
         chart_column.addWidget(self.chart_view)
         
         time_buttons = QHBoxLayout()
-        for period in ["1d", "5d", "1mo"]:  # Changed "10d" to "1m"
+        for period in ["1d", "5d", "1mo"]:
             btn = QPushButton(period)
             btn.setStyleSheet(self.button_style)
             btn.clicked.connect(lambda checked, p=period: self.update_chart_period(p))
             time_buttons.addWidget(btn)
         chart_column.addLayout(time_buttons)
         
-        main_layout.addLayout(chart_column)
+        columns_layout.addLayout(chart_column)
 
         # Third column: Analysis
         analysis_column = QVBoxLayout()
         self.analysis_text = QTextEdit()
         self.analysis_text.setReadOnly(True)
         analysis_column.addWidget(self.analysis_text)
-        main_layout.addLayout(analysis_column)
+        columns_layout.addLayout(analysis_column)
 
         self.current_stock = "AAPL"
         self.current_period = "1d"
@@ -166,7 +174,8 @@ class StockApp(QMainWindow):
         self.chart_view.setChart(chart)
 
     def update_analysis(self):
-        stock_data = yf.download(self.current_stock, period="6mo")
+        stock = yf.Ticker(self.current_stock)
+        stock_data = stock.history(period="6mo")
         
         # Calculate 10-day and 30-day moving averages
         ma10 = stock_data['Close'].rolling(window=10).mean().iloc[-1]
@@ -213,6 +222,15 @@ class StockApp(QMainWindow):
             analysis += "Interpretation: Oversold condition\n"
         else:
             analysis += "Interpretation: Neutral\n"
+        
+        # Fetch analyst price targets
+        # here I get the analyst price targets for the stock.
+
+        price_targets = stock.get_analyst_price_targets()
+        analysis += f"\nAnalyst Price Targets:\n{price_targets}\n"
+
+        
+
         
         self.analysis_text.setText(analysis)
 
