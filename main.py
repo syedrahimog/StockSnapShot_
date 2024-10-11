@@ -12,6 +12,24 @@ class StockApp(QMainWindow):
         self.setWindowTitle("Stock Snapshot")
         self.setGeometry(100, 100, 1200, 600)
 
+        # Define the button style
+        self.button_style = """
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                text-align: center;
+                text-decoration: none;
+                font-size: 14px;
+                margin: 2px 1px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+        """
+
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QHBoxLayout(central_widget)
@@ -24,6 +42,7 @@ class StockApp(QMainWindow):
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Enter stock symbol")
         search_button = QPushButton("Search")
+        search_button.setStyleSheet(self.button_style)
         search_button.clicked.connect(self.search_stock)
         search_layout.addWidget(self.search_box)
         search_layout.addWidget(search_button)
@@ -33,6 +52,7 @@ class StockApp(QMainWindow):
         stocks = ["AAPL", "INTC", "NVDA", "TSLA", "GOOG", "AMZN", "META", "TSM", "AVGO", "XOM"]
         for stock in stocks:
             btn = QPushButton(stock)
+            btn.setStyleSheet(self.button_style)
             btn.clicked.connect(lambda checked, s=stock: self.update_stock(s))
             stock_column.addWidget(btn)
         main_layout.addLayout(stock_column)
@@ -45,6 +65,7 @@ class StockApp(QMainWindow):
         time_buttons = QHBoxLayout()
         for period in ["1d", "5d", "1mo"]:  # Changed "10d" to "1m"
             btn = QPushButton(period)
+            btn.setStyleSheet(self.button_style)
             btn.clicked.connect(lambda checked, p=period: self.update_chart_period(p))
             time_buttons.addWidget(btn)
         chart_column.addLayout(time_buttons)
