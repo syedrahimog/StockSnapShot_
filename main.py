@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTextEdit, QLineEdit
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTextEdit, QLineEdit, QTabWidget
 from PyQt5.QtChart import QChart, QChartView, QLineSeries, QDateTimeAxis, QValueAxis, QBarSeries, QBarSet
 from PyQt5.QtCore import Qt, QDateTime
 from PyQt5.QtGui import QColor
@@ -54,6 +54,16 @@ class StockApp(QMainWindow):
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
 
+        # Create a tab widget
+        self.tab_widget = QTabWidget()
+        main_layout.addWidget(self.tab_widget)
+
+        # Create the main stock tab
+        stock_tab = QWidget()
+        self.tab_widget.addTab(stock_tab, "Stock Analysis")
+
+        stock_layout = QVBoxLayout(stock_tab)
+
         # Add search box and button at the top
         search_layout = QHBoxLayout()
         self.search_box = QLineEdit()
@@ -65,11 +75,11 @@ class StockApp(QMainWindow):
         search_layout.addWidget(self.search_box)
         search_layout.addWidget(search_button)
         search_layout.addStretch(1)  # Push search box and button to the left
-        main_layout.addLayout(search_layout)
+        stock_layout.addLayout(search_layout)
 
         # Create a layout for the three columns
         columns_layout = QHBoxLayout()
-        main_layout.addLayout(columns_layout)
+        stock_layout.addLayout(columns_layout)
 
         # First column: Stock list
         stock_list_column = QVBoxLayout()
@@ -108,9 +118,34 @@ class StockApp(QMainWindow):
         analysis_column.addWidget(self.analysis_text)
         columns_layout.addLayout(analysis_column)
 
+        # Create the market indices tab
+        indices_tab = QWidget()
+        self.tab_widget.addTab(indices_tab, "Market Indices")
+
+        indices_layout = QVBoxLayout(indices_tab)
+        
+        # Create chart views for S&P 500, DOW, and NASDAQ
+        self.sp500_chart_view = QChartView()
+        self.dow_chart_view = QChartView()
+        self.nasdaq_chart_view = QChartView()
+
+        indices_layout.addWidget(self.sp500_chart_view)
+        indices_layout.addWidget(self.dow_chart_view)
+        indices_layout.addWidget(self.nasdaq_chart_view)
+        
+        # Add time period buttons at the bottom
+        time_buttons_layout = QHBoxLayout()
+        for period in ["1d", "5d", "1mo"]:
+            btn = QPushButton(period)
+            btn.setStyleSheet(self.button_style)
+            btn.clicked.connect(lambda checked, p=period: self.update_indices_charts(p))
+            time_buttons_layout.addWidget(btn)
+        indices_layout.addLayout(time_buttons_layout)
+
         self.current_stock = "AAPL"
         self.current_period = "1d"
         self.update_stock(self.current_stock)
+        self.update_indices_charts("1d")  # Default to 1 day view
 
     def update_stock(self, stock):
         self.current_stock = stock
@@ -257,6 +292,47 @@ class StockApp(QMainWindow):
         stock_symbol = self.search_box.text().upper()
         if stock_symbol:
             self.update_stock(stock_symbol)
+
+    def update_indices_charts(self, period):
+        indices = [("^GSPC", "S&P 500"), ("^DJI", "Dow Jones"), ("^IXIC", "NASDAQ")]
+        chart_views = [self.sp500_chart_view, self.dow_chart_view, self.nasdaq_chart_view]
+
+        for (symbol, name), chart_view in zip(indices, chart_views):
+            data = yf.download(symbol, period=period, interval="5m" if period == "1d" else "1d")
+            
+            series = QLineSeries()
+            for index, row in data.iterrows():
+                date_time = QDateTime()
+                date_time.setSecsSinceEpoch(int(index.timestamp()))
+                series.append(date_time.toMSecsSinceEpoch(), row['Close'])
+
+            chart = QChart()
+            chart.addSeries(series)
+            chart.setTitle(f"{name} - {period}")
+
+            axis_x = QDateTimeAxis()
+            if period == "1d":
+                axis_x.setFormat("HH:mm")
+            elif period == "5d":
+                axis_x.setFormat("MM-dd HH:mm")
+            else:
+                axis_x.setFormat("MM-dd")
+            axis_x.setTickCount(5)
+            chart.addAxis(axis_x, Qt.AlignBottom)
+            series.attachAxis(axis_x)
+
+            axis_y = QValueAxis()
+            chart.addAxis(axis_y, Qt.AlignLeft)
+            series.attachAxis(axis_y)
+
+            series.setColor(QColor(255, 0, 0))  # Red color
+            pen = series.pen()
+            pen.setStyle(Qt.DashLine)  # Dashed line
+            pen.setWidth(2)
+            series.setPen(pen)
+
+            chart.legend().hide()
+            chart_view.setChart(chart)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
