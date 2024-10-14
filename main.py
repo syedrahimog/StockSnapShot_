@@ -227,7 +227,11 @@ class StockApp(QMainWindow):
         # here I get the analyst price targets for the stock.
 
         price_targets = stock.get_analyst_price_targets()
-        analysis += f"\nAnalyst Price Targets:\n{price_targets}\n"
+        analysis += f"\nCurrent price:{price_targets['current']}"
+        analysis += f"\nAnalyst low price:{price_targets['low']}"
+        analysis += f"\nAnalyst high price:{price_targets['high']}"
+        analysis += f"\nAnalyst mean price:{price_targets['mean']}"
+        analysis += f"\nAnalyst median price:{price_targets['median']}"
 
         
 
