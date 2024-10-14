@@ -218,7 +218,7 @@ class StockApp(QMainWindow):
         stock = yf.Ticker(self.current_stock)
         stock_data = stock.history(period="6mo")
         
-        # Calculate 10-day, 30-day, and 50-day moving averages
+        # Calculate moving averages
         ma10 = stock_data['Close'].rolling(window=10).mean().iloc[-1]
         ma30 = stock_data['Close'].rolling(window=30).mean().iloc[-1]
         ma50 = stock_data['Close'].rolling(window=50).mean().iloc[-1]
@@ -242,10 +242,31 @@ class StockApp(QMainWindow):
         # Prepare analysis text
         analysis = f"Analysis for {self.current_stock}:\n\n"
         
+        # Add fundamental data
+        info = stock.info
+        analysis += "Fundamental Data:\n"
+        analysis += f"Market Cap: ${info.get('marketCap', 'N/A'):,}\n"
+        analysis += f"P/E Ratio: {info.get('trailingPE', 'N/A'):.2f}\n"
+        analysis += f"EPS (TTM): ${info.get('trailingEps', 'N/A'):.2f}\n"
+        analysis += f"Forward P/E: {info.get('forwardPE', 'N/A'):.2f}\n"
+        
+        # Handle dividend yield formatting
+        dividend_yield = info.get('dividendYield', 'N/A')
+        if isinstance(dividend_yield, (int, float)):
+            analysis += f"Dividend Yield: {dividend_yield:.2%}\n"
+        else:
+            analysis += f"Dividend Yield: {dividend_yield}\n"
+        
+        analysis += f"52 Week High: ${info.get('fiftyTwoWeekHigh', 'N/A'):.2f}\n"
+        analysis += f"52 Week Low: ${info.get('fiftyTwoWeekLow', 'N/A'):.2f}\n"
+
+        analysis += "\n"
+
+        # Add existing technical analysis
         analysis += f"Moving Averages:\n"
-        analysis += f"MA10: {ma10:.2f}\n"
-        analysis += f"MA30: {ma30:.2f}\n"
-        analysis += f"MA50: {ma50:.2f}\n"
+        analysis += f"10 Day: {ma10:.2f}\n"
+        analysis += f"30 Day: {ma30:.2f}\n"
+        analysis += f"50 Day: {ma50:.2f}\n"
         
         if ma10 > ma30 and ma30 > ma50:
             analysis += "Interpretation: Strong uptrend. All shorter-term MAs above longer-term MAs.\n\n"
@@ -277,14 +298,16 @@ class StockApp(QMainWindow):
             analysis += "Interpretation: Neutral\n"
         
         # Fetch analyst price targets
-        # here I get the analyst price targets for the stock.
-
-        price_targets = stock.get_analyst_price_targets()
-        analysis += f"\nCurrent price: {price_targets['current']}"
-        analysis += f"\nAnalyst low price: {price_targets['low']}"
-        analysis += f"\nAnalyst high price: {price_targets['high']}"
-        analysis += f"\nAnalyst mean price: {price_targets['mean']}"
-        analysis += f"\nAnalyst median price: {price_targets['median']}"
+        try:
+            price_targets = stock.get_analyst_price_targets()
+            analysis += f"\nAnalyst Price Targets:\n"
+            analysis += f"Current price: ${price_targets['current']:.2f}\n"
+            analysis += f"Low price: ${price_targets['low']:.2f}\n"
+            analysis += f"High price: ${price_targets['high']:.2f}\n"
+            analysis += f"Mean price: ${price_targets['mean']:.2f}\n"
+            analysis += f"Median price: ${price_targets['median']:.2f}\n"
+        except Exception as e:
+            analysis += f"\nAnalyst Price Targets: Data not available\n"
 
         self.analysis_text.setText(analysis)
 
