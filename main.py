@@ -128,7 +128,7 @@ class StockApp(QMainWindow):
         price_series = QLineSeries()
         # Volume series
         volume_series = QBarSeries()
-        volume_set = QBarSet("Volume")
+        volume_set = QBarSet("")  # Remove the "Volume" label
         
         for index, row in stock_data.iterrows():
             date_time = QDateTime()
@@ -167,9 +167,15 @@ class StockApp(QMainWindow):
         max_volume = stock_data['Volume'].max()
         axis_y_volume.setRange(0, max_volume * 1.1)  # Add 10% margin
 
-        # Set colors
-        price_series.setColor(QColor(0, 0, 255))  # Blue for price
-        volume_set.setColor(QColor(200, 200, 200, 100))  # Light gray with transparency for volume
+        # Set colors and style for price series
+        price_series.setColor(QColor(255, 0, 0))  # Red color
+        pen = price_series.pen()
+        pen.setStyle(Qt.DashLine)
+        pen.setWidth(2)
+        price_series.setPen(pen)
+
+        # Hide the legend
+        chart.legend().hide()
 
         self.chart_view.setChart(chart)
 
@@ -177,9 +183,10 @@ class StockApp(QMainWindow):
         stock = yf.Ticker(self.current_stock)
         stock_data = stock.history(period="6mo")
         
-        # Calculate 10-day and 30-day moving averages
+        # Calculate 10-day, 30-day, and 50-day moving averages
         ma10 = stock_data['Close'].rolling(window=10).mean().iloc[-1]
         ma30 = stock_data['Close'].rolling(window=30).mean().iloc[-1]
+        ma50 = stock_data['Close'].rolling(window=50).mean().iloc[-1]
         
         # Calculate Stochastic Oscillator
         low_14 = stock_data['Low'].rolling(window=14).min()
@@ -200,11 +207,22 @@ class StockApp(QMainWindow):
         # Prepare analysis text
         analysis = f"Analysis for {self.current_stock}:\n\n"
         
-        if ma10 > ma30:
-            analysis += f"Moving Averages: Likely to INCREASE. MA10: {ma10:.2f}, MA30: {ma30:.2f}\n\n"
-        else:
-            analysis += f"Moving Averages: Likely to DECREASE. MA10: {ma10:.2f}, MA30: {ma30:.2f}\n\n"
+        analysis += f"Moving Averages:\n"
+        analysis += f"MA10: {ma10:.2f}\n"
+        analysis += f"MA30: {ma30:.2f}\n"
+        analysis += f"MA50: {ma50:.2f}\n"
         
+        if ma10 > ma30 and ma30 > ma50:
+            analysis += "Interpretation: Strong uptrend. All shorter-term MAs above longer-term MAs.\n\n"
+        elif ma10 < ma30 and ma30 < ma50:
+            analysis += "Interpretation: Strong downtrend. All shorter-term MAs below longer-term MAs.\n\n"
+        elif ma10 > ma30 > ma50:
+            analysis += "Interpretation: Potential bullish trend. Shorter-term MAs rising faster than longer-term MAs.\n\n"
+        elif ma10 < ma30 < ma50:
+            analysis += "Interpretation: Potential bearish trend. Shorter-term MAs falling faster than longer-term MAs.\n\n"
+        else:
+            analysis += "Interpretation: Mixed signals. No clear trend direction.\n\n"
+
         analysis += f"Stochastic Oscillator:\n"
         analysis += f"%K: {current_k:.2f}\n"
         analysis += f"%D: {current_d:.2f}\n"
@@ -227,15 +245,12 @@ class StockApp(QMainWindow):
         # here I get the analyst price targets for the stock.
 
         price_targets = stock.get_analyst_price_targets()
-        analysis += f"\nCurrent price:{price_targets['current']}"
-        analysis += f"\nAnalyst low price:{price_targets['low']}"
-        analysis += f"\nAnalyst high price:{price_targets['high']}"
-        analysis += f"\nAnalyst mean price:{price_targets['mean']}"
-        analysis += f"\nAnalyst median price:{price_targets['median']}"
+        analysis += f"\nCurrent price: {price_targets['current']}"
+        analysis += f"\nAnalyst low price: {price_targets['low']}"
+        analysis += f"\nAnalyst high price: {price_targets['high']}"
+        analysis += f"\nAnalyst mean price: {price_targets['mean']}"
+        analysis += f"\nAnalyst median price: {price_targets['median']}"
 
-        
-
-        
         self.analysis_text.setText(analysis)
 
     def search_stock(self):
