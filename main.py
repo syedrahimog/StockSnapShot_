@@ -4,6 +4,7 @@ from PyQt5.QtChart import QChart, QChartView, QLineSeries, QDateTimeAxis, QValue
 from PyQt5.QtCore import Qt, QDateTime
 from PyQt5.QtGui import QColor
 import yfinance as yf
+from yfinance.exceptions import YFPricesMissingError
 import pandas as pd
 import numpy as np
 import datetime
@@ -161,72 +162,139 @@ class StockApp(QMainWindow):
         self.update_indices_charts("1d")  # Default to 1 day view
 
     def update_stock(self, stock):
-        self.current_stock = stock
-        self.update_chart()
-        self.update_analysis()
-        self.update_competitors()  # Add this line
+        try:
+            self.current_stock = stock
+            self.update_chart()
+            self.update_analysis()
+            self.update_competitors()
+        except YFPricesMissingError:
+            print(f"Error: No price data found for {stock}. Defaulting to AAPL.")
+            self.current_stock = "AAPL"
+            self.update_chart()
+            self.update_analysis()
+            self.update_competitors()
 
     def update_chart_period(self, period):
         self.current_period = period
         self.update_chart()
 
     def update_chart(self):
-        stock_data = yf.download(self.current_stock, period=self.current_period, interval="5m")
-        
-        # Price series
-        price_series = QLineSeries()
-        # Volume series
-        volume_series = QBarSeries()
-        volume_set = QBarSet("")  # Remove the "Volume" label
-        
-        for index, row in stock_data.iterrows():
-            date_time = QDateTime()
-            date_time.setSecsSinceEpoch(int(index.timestamp()))
-            price_series.append(date_time.toMSecsSinceEpoch(), row['Close'])
-            volume_set.append(row['Volume'])
+        try:
+            stock_data = yf.download(self.current_stock, period=self.current_period, interval="5m")
+            
+            # Price series
+            price_series = QLineSeries()
+            # Volume series
+            volume_series = QBarSeries()
+            volume_set = QBarSet("")  # Remove the "Volume" label
+            
+            for index, row in stock_data.iterrows():
+                date_time = QDateTime()
+                date_time.setSecsSinceEpoch(int(index.timestamp()))
+                price_series.append(date_time.toMSecsSinceEpoch(), row['Close'])
+                volume_set.append(row['Volume'])
 
-        volume_series.append(volume_set)
+            volume_series.append(volume_set)
 
-        chart = QChart()
-        chart.addSeries(price_series)
-        chart.addSeries(volume_series)
-        chart.setTitle(f"{self.current_stock} - {self.current_period}")
+            chart = QChart()
+            chart.addSeries(price_series)
+            chart.addSeries(volume_series)
+            chart.setTitle(f"{self.current_stock} - {self.current_period}")
 
-        # Create and set up the X-axis (date/time)
-        axis_x = QDateTimeAxis()
-        axis_x.setFormat("MM-dd HH:mm")
-        axis_x.setTickCount(5)
-        chart.addAxis(axis_x, Qt.AlignBottom)
-        price_series.attachAxis(axis_x)
-        volume_series.attachAxis(axis_x)
+            # Create and set up the X-axis (date/time)
+            axis_x = QDateTimeAxis()
+            axis_x.setFormat("MM-dd HH:mm")
+            axis_x.setTickCount(5)
+            chart.addAxis(axis_x, Qt.AlignBottom)
+            price_series.attachAxis(axis_x)
+            volume_series.attachAxis(axis_x)
 
-        # Create and set up the Y-axis for price
-        axis_y_price = QValueAxis()
-        axis_y_price.setTitleText("Price")
-        chart.addAxis(axis_y_price, Qt.AlignLeft)
-        price_series.attachAxis(axis_y_price)
+            # Create and set up the Y-axis for price
+            axis_y_price = QValueAxis()
+            axis_y_price.setTitleText("Price")
+            chart.addAxis(axis_y_price, Qt.AlignLeft)
+            price_series.attachAxis(axis_y_price)
 
-        # Create and set up the Y-axis for volume
-        axis_y_volume = QValueAxis()
-        axis_y_volume.setTitleText("Volume")
-        chart.addAxis(axis_y_volume, Qt.AlignRight)
-        volume_series.attachAxis(axis_y_volume)
+            # Create and set up the Y-axis for volume
+            axis_y_volume = QValueAxis()
+            axis_y_volume.setTitleText("Volume")
+            chart.addAxis(axis_y_volume, Qt.AlignRight)
+            volume_series.attachAxis(axis_y_volume)
 
-        # Set the range for volume axis
-        max_volume = stock_data['Volume'].max()
-        axis_y_volume.setRange(0, max_volume * 1.1)  # Add 10% margin
+            # Set the range for volume axis
+            max_volume = stock_data['Volume'].max()
+            axis_y_volume.setRange(0, max_volume * 1.1)  # Add 10% margin
 
-        # Set colors and style for price series
-        price_series.setColor(QColor(255, 0, 0))  # Red color
-        pen = price_series.pen()
-        pen.setStyle(Qt.DashLine)
-        pen.setWidth(2)
-        price_series.setPen(pen)
+            # Set colors and style for price series
+            price_series.setColor(QColor(255, 0, 0))  # Red color
+            pen = price_series.pen()
+            pen.setStyle(Qt.DashLine)
+            pen.setWidth(2)
+            price_series.setPen(pen)
 
-        # Hide the legend
-        chart.legend().hide()
+            # Hide the legend
+            chart.legend().hide()
 
-        self.chart_view.setChart(chart)
+            self.chart_view.setChart(chart)
+        except YFPricesMissingError:
+            print(f"Error: No price data found for {self.current_stock} in update_chart. Using AAPL.")
+            self.current_stock = "AAPL"
+            stock_data = yf.download(self.current_stock, period=self.current_period, interval="5m")
+            
+            # Price series
+            price_series = QLineSeries()
+            # Volume series
+            volume_series = QBarSeries()
+            volume_set = QBarSet("")  # Remove the "Volume" label
+            
+            for index, row in stock_data.iterrows():
+                date_time = QDateTime()
+                date_time.setSecsSinceEpoch(int(index.timestamp()))
+                price_series.append(date_time.toMSecsSinceEpoch(), row['Close'])
+                volume_set.append(row['Volume'])
+
+            volume_series.append(volume_set)
+
+            chart = QChart()
+            chart.addSeries(price_series)
+            chart.addSeries(volume_series)
+            chart.setTitle(f"{self.current_stock} - {self.current_period}")
+
+            # Create and set up the X-axis (date/time)
+            axis_x = QDateTimeAxis()
+            axis_x.setFormat("MM-dd HH:mm")
+            axis_x.setTickCount(5)
+            chart.addAxis(axis_x, Qt.AlignBottom)
+            price_series.attachAxis(axis_x)
+            volume_series.attachAxis(axis_x)
+
+            # Create and set up the Y-axis for price
+            axis_y_price = QValueAxis()
+            axis_y_price.setTitleText("Price")
+            chart.addAxis(axis_y_price, Qt.AlignLeft)
+            price_series.attachAxis(axis_y_price)
+
+            # Create and set up the Y-axis for volume
+            axis_y_volume = QValueAxis()
+            axis_y_volume.setTitleText("Volume")
+            chart.addAxis(axis_y_volume, Qt.AlignRight)
+            volume_series.attachAxis(axis_y_volume)
+
+            # Set the range for volume axis
+            max_volume = stock_data['Volume'].max()
+            axis_y_volume.setRange(0, max_volume * 1.1)  # Add 10% margin
+
+            # Set colors and style for price series
+            price_series.setColor(QColor(255, 0, 0))  # Red color
+            pen = price_series.pen()
+            pen.setStyle(Qt.DashLine)
+            pen.setWidth(2)
+            price_series.setPen(pen)
+
+            # Hide the legend
+            chart.legend().hide()
+
+            self.chart_view.setChart(chart)
 
     def update_analysis(self):
         stock = yf.Ticker(self.current_stock)
@@ -344,7 +412,13 @@ class StockApp(QMainWindow):
     def search_stock(self):
         stock_symbol = self.search_box.text().upper()
         if stock_symbol:
-            self.update_stock(stock_symbol)
+            try:
+                self.update_stock(stock_symbol)
+            except IndexError:
+                print(f"Error: No price data found for {stock_symbol}. Defaulting to AAPL.")
+                self.current_stock = "AAPL"
+                self.search_box.setText("Defaulting to AAPL")
+                self.update_stock(self.current_stock)
 
     def update_indices_charts(self, period):
         indices = [("^GSPC", "S&P 500"), ("^DJI", "Dow Jones"), ("^IXIC", "NASDAQ")]
