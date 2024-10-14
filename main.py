@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTextEdit, QLineEdit, QTabWidget
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTextEdit, QLineEdit, QTabWidget, QListWidget
 from PyQt5.QtChart import QChart, QChartView, QLineSeries, QDateTimeAxis, QValueAxis, QBarSeries, QBarSet
 from PyQt5.QtCore import Qt, QDateTime
 from PyQt5.QtGui import QColor
@@ -118,6 +118,19 @@ class StockApp(QMainWindow):
         analysis_column.addWidget(self.analysis_text)
         columns_layout.addLayout(analysis_column)
 
+        # Create the stock competitors tab
+        competitors_tab = QWidget()
+        self.tab_widget.addTab(competitors_tab, "Stock Competitors")
+
+        competitors_layout = QVBoxLayout(competitors_tab)
+        
+        # Create a QListWidget to display competitors
+        self.competitors_list = QListWidget()
+        competitors_layout.addWidget(self.competitors_list)
+
+        # Connect double-click event to update_stock method
+        self.competitors_list.itemDoubleClicked.connect(self.competitor_double_clicked)
+
         # Create the market indices tab
         indices_tab = QWidget()
         self.tab_widget.addTab(indices_tab, "Market Indices")
@@ -151,6 +164,7 @@ class StockApp(QMainWindow):
         self.current_stock = stock
         self.update_chart()
         self.update_analysis()
+        self.update_competitors()  # Add this line
 
     def update_chart_period(self, period):
         self.current_period = period
@@ -216,12 +230,13 @@ class StockApp(QMainWindow):
 
     def update_analysis(self):
         stock = yf.Ticker(self.current_stock)
-        stock_data = stock.history(period="6mo")
+        stock_data = stock.history(period="1y")
         
         # Calculate moving averages
         ma10 = stock_data['Close'].rolling(window=10).mean().iloc[-1]
         ma30 = stock_data['Close'].rolling(window=30).mean().iloc[-1]
         ma50 = stock_data['Close'].rolling(window=50).mean().iloc[-1]
+        ma200 = stock_data['Close'].rolling(window=200).mean().iloc[-1]
         
         # Calculate Stochastic Oscillator
         low_14 = stock_data['Low'].rolling(window=14).min()
@@ -242,13 +257,27 @@ class StockApp(QMainWindow):
         # Prepare analysis text
         analysis = f"Analysis for {self.current_stock}:\n\n"
         
+        def format_value(value, decimal_places=2):
+            if isinstance(value, (int, float)):
+                return f"{value:.{decimal_places}f}"
+            return str(value)
+
         # Add fundamental data
         info = stock.info
         analysis += "Fundamental Data:\n"
         analysis += f"Market Cap: ${info.get('marketCap', 'N/A'):,}\n"
-        analysis += f"P/E Ratio: {info.get('trailingPE', 'N/A'):.2f}\n"
-        analysis += f"EPS (TTM): ${info.get('trailingEps', 'N/A'):.2f}\n"
-        analysis += f"Forward P/E: {info.get('forwardPE', 'N/A'):.2f}\n"
+        
+        # Fix for P/E Ratio
+        pe_ratio = info.get('trailingPE', 'N/A')
+        analysis += f"P/E Ratio: {format_value(pe_ratio)}\n"
+        
+        # Fix for EPS
+        eps = info.get('trailingEps', 'N/A')
+        analysis += f"EPS (TTM): ${format_value(eps)}\n"
+        
+        # Fix for Forward P/E
+        forward_pe = info.get('forwardPE', 'N/A')
+        analysis += f"Forward P/E: {format_value(forward_pe)}\n"
         
         # Handle dividend yield formatting
         dividend_yield = info.get('dividendYield', 'N/A')
@@ -257,8 +286,8 @@ class StockApp(QMainWindow):
         else:
             analysis += f"Dividend Yield: {dividend_yield}\n"
         
-        analysis += f"52 Week High: ${info.get('fiftyTwoWeekHigh', 'N/A'):.2f}\n"
-        analysis += f"52 Week Low: ${info.get('fiftyTwoWeekLow', 'N/A'):.2f}\n"
+        analysis += f"52 Week High: ${format_value(info.get('fiftyTwoWeekHigh', 'N/A'))}\n"
+        analysis += f"52 Week Low: ${format_value(info.get('fiftyTwoWeekLow', 'N/A'))}\n"
 
         analysis += "\n"
 
@@ -267,6 +296,7 @@ class StockApp(QMainWindow):
         analysis += f"10 Day: {ma10:.2f}\n"
         analysis += f"30 Day: {ma30:.2f}\n"
         analysis += f"50 Day: {ma50:.2f}\n"
+        analysis += f"200 Day: {ma200:.2f}\n"
         
         if ma10 > ma30 and ma30 > ma50:
             analysis += "Interpretation: Strong uptrend. All shorter-term MAs above longer-term MAs.\n\n"
@@ -356,6 +386,67 @@ class StockApp(QMainWindow):
 
             chart.legend().hide()
             chart_view.setChart(chart)
+
+    def update_competitors(self):
+        # Clear the current list
+        self.competitors_list.clear()
+
+        # Fetch competitor data
+        stock = yf.Ticker(self.current_stock)
+        try:
+            # Try to get competitors from the info
+            sector = stock.info.get('sector', '')
+            industry = stock.info.get('industry', '')
+            competitors = self.get_sector_competitors(sector, industry)
+        except:
+            # If there's an error, use a default list
+            competitors = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "JPM", "JNJ", "V"]
+
+        # Remove the current stock from the competitors list if it's there
+        competitors = [comp for comp in competitors if comp != self.current_stock]
+
+        # Add competitors to the list
+        for competitor in competitors[:10]:  # Limit to 10 competitors
+            self.competitors_list.addItem(competitor)
+
+    def get_sector_competitors(self, sector, industry):
+        # This is a simplified example. You might want to expand this with more sectors and stocks.
+        sector_competitors = {
+            "Technology": {
+                "Software": ["MSFT", "ORCL", "CRM", "ADBE", "INTU", "NOW", "WDAY", "TEAM", "ZS", "PANW"],
+                "Hardware": ["AAPL", "DELL", "HPQ", "LEN", "NTAP", "WDC", "STX", "LOGI", "JNPR", "CSCO"],
+                "Semiconductors": ["NVDA", "INTC", "AMD", "TSM", "AVGO", "QCOM", "TXN", "AMAT", "LRCX", "MU"],
+            },
+            "Communication Services": {
+                "Internet Content & Information": ["GOOGL", "META", "TWTR", "SNAP", "PINS", "MTCH", "SPOT", "ZM", "NFLX", "DIS"],
+            },
+            "Consumer Cyclical": {
+                "Internet Retail": ["AMZN", "BABA", "JD", "EBAY", "ETSY", "W", "CHWY", "CVNA", "FTCH", "OSTK"],
+            },
+            "Financial Services": {
+                "Banks": ["JPM", "BAC", "WFC", "C", "GS", "MS", "USB", "PNC", "TFC", "FITB"],
+            },
+            "Healthcare": {
+                "Drug Manufacturers": ["JNJ", "PFE", "MRK", "ABBV", "LLY", "BMY", "AMGN", "GILD", "BIIB", "VRTX"],
+            },
+        }
+
+        if sector in sector_competitors and industry in sector_competitors[sector]:
+            return sector_competitors[sector][industry]
+        elif sector in sector_competitors:
+            return [stock for industry_list in sector_competitors[sector].values() for stock in industry_list]
+        else:
+            return ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "JPM", "JNJ", "V"]
+
+    def competitor_double_clicked(self, item):
+        # Get the stock symbol from the clicked item
+        competitor_stock = item.text()
+        
+        # Update the stock
+        self.update_stock(competitor_stock)
+        
+        # Switch to the Stock Analysis tab
+        self.tab_widget.setCurrentIndex(0)  # Assuming Stock Analysis is the first tab
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
