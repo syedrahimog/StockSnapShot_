@@ -5,9 +5,6 @@ from PyQt5.QtCore import Qt, QDateTime
 from PyQt5.QtGui import QColor
 import yfinance as yf
 from yfinance.exceptions import YFPricesMissingError
-import pandas as pd
-import numpy as np
-import datetime
 
 class StockApp(QMainWindow):
     def __init__(self):
